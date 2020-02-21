@@ -1,5 +1,6 @@
 <template lang="pug">
     .container
+        .map#map(style="width: 100px; height: 100px;display:none")
         div
             el-radio-group(v-model="activeName" v-show="activeName != 'forgetPass'" size="mini" @change="formTypeChange" style="display: flex;justify-content: center;margin-left: 100px;")
                 el-radio-button(label="login") 登录
@@ -41,230 +42,278 @@
 </template>
 
 <script lang="ts">
-    import { Vue, Prop, Watch, Emit, Component } from "vue-property-decorator";
-    import {forgetPass, loginApi, registerApi} from "@/api/api";
-    import { $post } from '@/utils/feth';
-    import { getURLParameters } from '@/utils/url-params';
-    import Rule from '@/type/Rule';
-    import {validEmail} from '@/utils/validate';
-    @Component({
-        name: 'Login',
-    })
-    export default class Login extends Vue {
-        private static validateEmail(rule: Rule, value: string, callback: (error?: Error) => void) {
-            if (!validEmail(value)) {
-                callback(new Error('邮箱格式不正确'));
-            } else {
-                callback();
-            }
+import { Vue, Prop, Watch, Emit, Component } from "vue-property-decorator";
+import {forgetPass, loginApi, registerApi} from "@/api/api";
+import { $post } from '@/utils/feth';
+import { getURLParameters } from '@/utils/url-params';
+import Rule from '@/type/Rule';
+import {validEmail} from '@/utils/validate';
+import { Base64 } from 'js-base64';
+let currentMapConfig:any = undefined;
+@Component({
+    name: 'Login',
+})
+export default class Login extends Vue {
+    private static validateEmail(rule: Rule, value: string, callback: (error?: Error) => void) {
+        if (!validEmail(value)) {
+            callback(new Error('邮箱格式不正确'));
+        } else {
+            callback();
         }
-        private loginRules = {
-            userName: [
-                {required: true, message: '请输入账号', trigger: 'blur'},
-            ],
-            userPassword: [
-                {required: true, message: '请输入密码', trigger: 'blur'},
-            ],
-        };
-        public $refs!: {
-            loginForm: HTMLFormElement,
-            registerForm: HTMLFormElement,
-            forgetPassForm: HTMLFormElement,
-        };
-        private registerRules = {
-            name: [
-                {required: true, message: '请输入账号', trigger: 'blur'},
-            ],
-            password: [
-                {required: true, message: '请输入密码', trigger: 'blur'},
-            ],
-            rePassword: [
-                {required: true, message: '请输入确认密码', trigger: 'blur'},
-                new Rule({ required: true, trigger: 'blur', message: '请再次确认密码' }, (rule, value, callback) => {
-                    if (this.registerForm.password != this.registerForm.rePassword) {
-                        callback(new Error('确认密码不正确'))
-                    } else {
-                        callback()
-                    }
-                }),
-            ],
-            nick: [
-                {required: true, message: '请输入昵称', trigger: 'blur'},
-            ],
-            email: [
-                {required: true, message: '请输入邮箱', trigger: 'blur'},
-                new Rule({}, Login.validateEmail),
-            ],
-        };
-        private forgetPassRules = {
-            email: [
-                {required: true, message: '请输入邮箱', trigger: 'blur'},
-                new Rule({}, Login.validateEmail),
-            ],
-        };
-        public activeName:string = 'login';
-        public loginForm = {
-            userName:  '',
-            userPassword: '',
-        };
-        public forgetPassForm = {
-            email: ''
-        };
-        public registerForm = {
-            name: "",
-            email:"",
-            password:"",
-            rePassword:'',
-            nick: "",
-        };
-        public processStatus: string = 'wait';
-        public finishStatus: string  = 'wait';
-        public currentStep: number = 1;
-        private urlParams: any;
-        private redirectTarget: string = '';
-        private checked = true;
-        private loading = false;
-
-        private created() {
-            this.urlParams = getURLParameters(window.location.href);
-            this.redirectTarget = this.urlParams.redirectUrl ? decodeURIComponent(this.urlParams.redirectUrl) : '';
-        }
-
-        public handleClick() {
-
-        }
-
-        public focusEmail() {
-            this.currentStep = 1;
-            this.processStatus = 'wait';
-            this.finishStatus = 'wait';
-        }
-
-        /**
-         * 返回登录
-         */
-        public backLogin() {
-            this.activeName = 'login';
-            this.currentStep = 1;
-            this.finishStatus = 'wait';
-            this.forgetPassForm.email = '';
-            try {
-                this.$refs.forgetPassForm.resetFields();
-            }catch (e) {
-                console.log(e)
-                return true;
-            }
-        }
-        /**
-         * 密码忘记
-         */
-        public forgetPass() {
-            this.activeName = 'forgetPass'
-        }
-        /**
-         * 表单类型改变
-         */
-        public formTypeChange(value: any) {
-            try {
-                console.log(this.$refs.loginForm)
-                this.$refs.loginForm.resetFields();
-                this.$refs.registerForm.resetFields();
-                this.$refs.forgetPassForm.resetFields();
-            }catch (e) {
-                console.log(e)
-            }
-        }
-        /**
-         * 用户登录
-         */
-        public async handleSubmit() {
-            const api: string = loginApi.api;
-            const el: any = this.$refs.loginForm;
-            el.validate(async (valid: boolean) => {
-                if (!valid) {
-                    return false;
-                }
-                const params = { name: this.loginForm.userName, password: this.loginForm.userPassword };
-                const res: any = await $post(api, params);
-                if (res.data.success) {
-                    const url: string = decodeURIComponent(this.redirectTarget) + '?token=' + res.data.data.accessToken;
-                    window.location.replace(url);
+    }
+    private loginRules = {
+        userName: [
+            {required: true, message: '请输入账号', trigger: 'blur'},
+        ],
+        userPassword: [
+            {required: true, message: '请输入密码', trigger: 'blur'},
+        ],
+    };
+    public $refs!: {
+        loginForm: HTMLFormElement,
+        registerForm: HTMLFormElement,
+        forgetPassForm: HTMLFormElement,
+    };
+    private registerRules = {
+        name: [
+            {required: true, message: '请输入账号', trigger: 'blur'},
+        ],
+        password: [
+            {required: true, message: '请输入密码', trigger: 'blur'},
+        ],
+        rePassword: [
+            {required: true, message: '请输入确认密码', trigger: 'blur'},
+            new Rule({ required: true, trigger: 'blur', message: '请再次确认密码' }, (rule, value, callback) => {
+                if (this.registerForm.password != this.registerForm.rePassword) {
+                    callback(new Error('确认密码不正确'))
                 } else {
-                    this.$message({
-                        type: 'error',
-                        message: res.data.message,
-                    });
+                    callback()
                 }
-                console.log(res);
-            });
-            this.loading = false;
-        }
+            }),
+        ],
+        nick: [
+            {required: true, message: '请输入昵称', trigger: 'blur'},
+        ],
+        email: [
+            {required: true, message: '请输入邮箱', trigger: 'blur'},
+            new Rule({}, Login.validateEmail),
+        ],
+    };
+    private forgetPassRules = {
+        email: [
+            {required: true, message: '请输入邮箱', trigger: 'blur'},
+            new Rule({}, Login.validateEmail),
+        ],
+    };
+    public activeName:string = 'login';
+    public loginForm = {
+        userName:  '',
+        userPassword: '',
+    };
+    public forgetPassForm = {
+        email: ''
+    };
+    public registerForm = {
+        name: "",
+        email:"",
+        password:"",
+        rePassword:'',
+        nick: "",
+    };
+    // 当前登录的地址配置
+    public currentMapConfig: any;
+    public processStatus: string = 'wait';
+    public finishStatus: string  = 'wait';
+    public currentStep: number = 1;
+    private urlParams: any;
+    private redirectTarget: string = '';
+    private checked = true;
+    private loading = false;
 
-        /**
-         * 用户注册
-         */
-        public registerSubmit() {
-            const api: string = registerApi.api;
-            const el: any = this.$refs.registerForm;
-            el.validate(async (valid: boolean) => {
-                if (!valid) {
-                    return false;
-                }
-                const params = { name: this.registerForm.name, password: this.registerForm.password, age: '', address: '', nick: this.registerForm.nick, email: this.registerForm.email };
-                const res: any = await $post(api, params);
-                console.log(res);
-                if (res.data.success) {
-                    this.$message({
-                        type: 'success',
-                        message: '注册成功',
-                    });
-                    this.formTypeChange('login');
-                    this.activeName = 'login';
-                } else {
-                    this.$message({
-                        type: 'error',
-                        message: res.data.message,
-                    });
-                }
-                console.log(res);
-            });
-            this.loading = false;
-        }
+    private created() {
+        this.urlParams = getURLParameters(window.location.href);
+        this.redirectTarget = this.urlParams.redirectUrl ? decodeURIComponent(this.urlParams.redirectUrl) : '';
+    }
 
-        /**
-         * 邮箱确认密码
-         */
-        public okEmail() {
-            const api: string = forgetPass.api;
-            const el: any = this.$refs.forgetPassForm;
-            el.validate(async (valid: boolean) => {
-                if (!valid) {
-                    return false;
-                }
-                const params = { email: this.forgetPassForm.email};
-                const res: any = await $post(api, params);
-                if (res.data && res.data.success) {
-                    this.currentStep = this.currentStep + 1
-                    this.finishStatus = 'success'
-                    this.$message({
-                        type: 'success',
-                        message: '密码已发至邮箱，请注意查收'
-                    })
-                } else {
-                    this.currentStep = 0;
-                    this.processStatus = 'error'
-                    this.$message({
-                        type: 'error',
-                        message: res.data.message
-                    })
-                }
-                console.log(res)
+    private mounted() {
+        this.initBaiduMap()
+    }
 
-            });
-            this.loading = false;
-        }
+    public handleClick() {
 
     }
+
+    public focusEmail() {
+        this.currentStep = 1;
+        this.processStatus = 'wait';
+        this.finishStatus = 'wait';
+    }
+
+    /**
+     * 返回登录
+     */
+    public backLogin() {
+        this.activeName = 'login';
+        this.currentStep = 1;
+        this.finishStatus = 'wait';
+        this.forgetPassForm.email = '';
+        try {
+            this.$refs.forgetPassForm.resetFields();
+        }catch (e) {
+            console.log(e)
+            return true;
+        }
+    }
+    /**
+     * 密码忘记
+     */
+    public forgetPass() {
+        this.activeName = 'forgetPass'
+    }
+    /**
+     * 表单类型改变
+     */
+    public formTypeChange(value: any) {
+        try {
+            console.log(this.$refs.loginForm)
+            this.$refs.loginForm.resetFields();
+            this.$refs.registerForm.resetFields();
+            this.$refs.forgetPassForm.resetFields();
+        }catch (e) {
+            console.log(e)
+        }
+    }
+    /**
+     * 用户登录
+     */
+    public async handleSubmit() {
+        const api: string = loginApi.api;
+        const el: any = this.$refs.loginForm;
+        el.validate(async (valid: boolean) => {
+            console.log(currentMapConfig);
+            const address = Base64.encode(JSON.stringify(currentMapConfig.point));
+            if (!valid) {
+                return false;
+            }
+            const params = { name: this.loginForm.userName, password: this.loginForm.userPassword, other: address };
+            const res: any = await $post(api, params);
+            if (res.data.success) {
+                const url: string = decodeURIComponent(this.redirectTarget) + '?token=' + res.data.data.accessToken;
+                window.location.replace(url);
+            } else {
+                this.$message({
+                    type: 'error',
+                    message: res.data.message,
+                });
+            }
+        });
+        this.loading = false;
+    }
+
+    /**
+     * 用户注册
+     */
+    public registerSubmit() {
+        const api: string = registerApi.api;
+        const el: any = this.$refs.registerForm;
+        el.validate(async (valid: boolean) => {
+            const address = Base64.encode(JSON.stringify(currentMapConfig.point));
+            if (!valid) {
+                return false;
+            }
+            const params = { name: this.registerForm.name, password: this.registerForm.password, age: '', address: '', nick: this.registerForm.nick, email: this.registerForm.email, other: address };
+            const res: any = await $post(api, params);
+            if (res.data.success) {
+                this.$message({
+                    type: 'success',
+                    message: '注册成功',
+                });
+                this.formTypeChange('login');
+                this.activeName = 'login';
+            } else {
+                this.$message({
+                    type: 'error',
+                    message: res.data.message,
+                });
+            }
+            console.log(res);
+        });
+        this.loading = false;
+    }
+
+    /**
+     * 邮箱确认密码
+     */
+    public okEmail() {
+        const api: string = forgetPass.api;
+        const el: any = this.$refs.forgetPassForm;
+        el.validate(async (valid: boolean) => {
+            if (!valid) {
+                return false;
+            }
+            const params = { email: this.forgetPassForm.email};
+            const res: any = await $post(api, params);
+            if (res.data && res.data.success) {
+                this.currentStep = this.currentStep + 1
+                this.finishStatus = 'success'
+                this.$message({
+                    type: 'success',
+                    message: '密码已发至邮箱，请注意查收'
+                })
+            } else {
+                this.currentStep = 0;
+                this.processStatus = 'error'
+                this.$message({
+                    type: 'error',
+                    message: res.data.message
+                })
+            }
+            console.log(res)
+
+        });
+        this.loading = false;
+    }
+
+    /**
+     * 初始化百度地图
+     */
+    public initBaiduMap() {
+        const map = new BMap.Map("map");
+        const that = this;
+        const point = new BMap.Point(116.331398, 39.897445);
+        map.centerAndZoom(point, 12);
+        const geoc = new BMap.Geocoder();
+        const geolocation = new BMap.Geolocation();
+        // 开启SDK辅助定位
+        geolocation.enableSDKLocation();
+        geolocation.getCurrentPosition(function (r: any){
+            // @ts-ignore
+            if (this.getStatus() == BMAP_STATUS_SUCCESS){
+                const mk = new BMap.Marker(r.point);
+                map.addOverlay(mk);
+                map.panTo(r.point);
+                geoc.getLocation(r.point, (rs: any) => {
+                    console.log(rs);
+                    that.currentMapConfig = {
+                        address: rs.addressComponents,
+                        point: rs.point,
+                        surroundingPois: rs.surroundingPois
+                    };
+                    currentMapConfig = JSON.parse(JSON.stringify(that.currentMapConfig))
+                    console.log(currentMapConfig)
+                })
+            } else {
+                console.warn('GET LOCATION FILED, PLEASE ENABLE BROWSER LOCATION')
+                that.currentMapConfig = {
+                    address: {},
+                    point: {},
+                    surroundingPois: {}
+                };
+            }
+        })
+    }
+
+}
 </script>
 
 <style lang="stylus" scoped>

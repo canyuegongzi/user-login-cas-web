@@ -7,10 +7,8 @@ declare module 'qs' {
   export default qs;
 }
 
-declare module 'BMap' {
-  const BMap: (id: string) => any;
-  export default BMap;
-}
+declare let BMap: any;
+declare let BMAP_STATUS_SUCCESS: any;
 declare module '$post' {
   import {$post} from '@/utils/feth';
   export default $post;

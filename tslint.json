@@ -5,7 +5,8 @@
   ],
   "linterOptions": {
     "exclude": [
-      "node_modules/**"
+      "node_modules/**",
+      "views/login/**"
     ]
   },
   "rules": {
@@ -16,6 +17,12 @@
     "ordered-imports": false,
     "quotemark": [false, "single"],
     "no-console": false,
-    "disable":"no-string-literal"
+    "arrow-return-shorthand": false,
+    "no-empty": false,
+    "no-angle-bracket-type-assertion": false,
+    "prefer-for-of": false,
+    "jsdoc-format": false,
+    "triple-equals": false,
+    "no-unused-expression": false
   }
 }
