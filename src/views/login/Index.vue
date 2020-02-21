@@ -175,7 +175,6 @@ export default class Login extends Vue {
      */
     public formTypeChange(value: any) {
         try {
-            console.log(this.$refs.loginForm)
             this.$refs.loginForm.resetFields();
             this.$refs.registerForm.resetFields();
             this.$refs.forgetPassForm.resetFields();
@@ -190,7 +189,6 @@ export default class Login extends Vue {
         const api: string = loginApi.api;
         const el: any = this.$refs.loginForm;
         el.validate(async (valid: boolean) => {
-            console.log(currentMapConfig);
             const address = Base64.encode(JSON.stringify(currentMapConfig.point));
             if (!valid) {
                 return false;
@@ -236,7 +234,6 @@ export default class Login extends Vue {
                     message: res.data.message,
                 });
             }
-            console.log(res);
         });
         this.loading = false;
     }
@@ -293,14 +290,12 @@ export default class Login extends Vue {
                 map.addOverlay(mk);
                 map.panTo(r.point);
                 geoc.getLocation(r.point, (rs: any) => {
-                    console.log(rs);
                     that.currentMapConfig = {
                         address: rs.addressComponents,
                         point: rs.point,
                         surroundingPois: rs.surroundingPois
                     };
                     currentMapConfig = JSON.parse(JSON.stringify(that.currentMapConfig))
-                    console.log(currentMapConfig)
                 })
             } else {
                 console.warn('GET LOCATION FILED, PLEASE ENABLE BROWSER LOCATION')
